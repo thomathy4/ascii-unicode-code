@@ -2,12 +2,13 @@
 """Reassemble unicode_mapping.csv from its split chunks.
 
 The full mapping (1,114,112 rows + header, ~105 MB) exceeds GitHub's
-100 MB per-file limit, so it is stored here as 13 plain-text chunks,
-each under 9 MB:
+100 MB per-file limit, so it is stored here as 37 plain-text chunks,
+each under 3 MB (the MCP push path rejects ~9 MB requests with HTTP 413,
+so the original 13 x ~9 MB split was re-split):
 
-    mapping/unicode_mapping.part01.csv  ...  mapping/unicode_mapping.part13.csv
+    mapping/unicode_mapping.chunk01.csv  ...  mapping/unicode_mapping.chunk37.csv
 
-The header row is in part01 only. Concatenating the parts in order
+The header row is in chunk01 only. Concatenating the chunks in order
 reproduces the original file exactly (SHA-256
 2c9163c7c67b8adbab8697c38e580648433d73428c7a23945def5d1826c784ef).
 
@@ -16,7 +17,7 @@ Usage (from the repository root):
     # writes unicode_mapping.csv next to this script's parent, i.e. repo root
 
 Or with the shell:
-    cat mapping/unicode_mapping.part*.csv > unicode_mapping.csv
+    cat mapping/unicode_mapping.chunk*.csv > unicode_mapping.csv
 
 The same file can also be regenerated from scratch with:
     python3 generate_mapping.py
@@ -27,7 +28,7 @@ import pathlib
 import sys
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
-PARTS = sorted((pathlib.Path(__file__).resolve().parent).glob("unicode_mapping.part*.csv"))
+PARTS = sorted((pathlib.Path(__file__).resolve().parent).glob("unicode_mapping.chunk*.csv"))
 EXPECTED_SHA256 = "2c9163c7c67b8adbab8697c38e580648433d73428c7a23945def5d1826c784ef"
 EXPECTED_LINES = 1114113
 
@@ -46,7 +47,7 @@ def main() -> int:
                     h.update(chunk)
                     out.write(chunk)
             lines += sum(1 for _ in open(part, "rb"))
-    print(f"Wrote {out_path} from {len(PARTS)} parts ({lines} lines).")
+    print(f"Wrote {out_path} from {len(PARTS)} chunks ({lines} lines).")
     print(f"SHA-256: {h.hexdigest()}")
     if h.hexdigest() != EXPECTED_SHA256:
         print("WARNING: SHA-256 does not match the expected value!", file=sys.stderr)

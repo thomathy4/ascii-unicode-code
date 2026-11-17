@@ -7,7 +7,8 @@ and the result can be turned back into the original text
 exactly — a round trip.
 
 It was built for Thomas, 2026-11-17, Unicode version **18.0.0**,
-code version **1.0.0**. Research only in the sense that no
+code version **1.1.0** (1.0.0 as first built; 1.1.0 adds only the
+opt-in abstract surrogate mode). Research only in the sense that no
 Notion content was modified to build it; the code itself is
 complete and tested (see `TEST_REPORT.md`).
 
@@ -50,25 +51,35 @@ Both build; the variant folders have their own READMEs.
 | `TEST_REPORT.md` | Test results with exact counts. |
 | `UnicodeData.txt` | Source data, Unicode 18.0.0. |
 | `unicode_mapping.csv` | One row per code point, 1,114,112 rows, ASCII-only. **On GitHub this file is split** — see the note below. |
-| `mapping/` | The split mapping: 13 chunks under 9 MB each, plus `reassemble.py` and its README. |
+| `mapping/` | The split mapping: 37 chunks under 3 MB each, plus `reassemble.py` and its README. |
 | `variants/esc-only/` | ESC-only variant. |
 | `variants/visible-only/` | Visible-only variant. |
 
 ### Note: the split mapping file (GitHub)
 
 The full `unicode_mapping.csv` is ~105 MB, over GitHub's 100 MB
-per-file limit, so on GitHub it is stored as 13 chunks in `mapping/`
-(`unicode_mapping.part01.csv` … `part13.csv`, header in part01 only).
+per-file limit, so on GitHub it is stored as 37 chunks in `mapping/`
+(`unicode_mapping.chunk01.csv` … `chunk37.csv`, header in chunk01 only).
 To rebuild the original file exactly, from the repository root:
 
 ```sh
-cat mapping/unicode_mapping.part*.csv > unicode_mapping.csv
+cat mapping/unicode_mapping.chunk*.csv > unicode_mapping.csv
 ```
 
 or run `python3 mapping/reassemble.py`, which also checks the SHA-256
 (`2c9163c7…84ef`, full value in `mapping/README.md`) and the line count
 (1,114,113 including the header). The same file can also be regenerated
 with `python3 generate_mapping.py` from `UnicodeData.txt`.
+
+Change note — 2026-11-17: the 13-part split (`part01`–`part13`, ~9 MB
+each) is superseded by this 37-chunk split (~3 MB each) because a ~9 MB
+push failed with HTTP 413 while a 3.8 MB Batch A push succeeded.
+`mapping/unicode_mapping.part13.csv` remains on GitHub as pushed in
+Batch A; it is retained, not deleted, per Thomas's instruction. The
+old local `part01`–`part12` files were never pushed and are retained
+locally. Reassembly: `cat mapping/unicode_mapping.chunk*.csv >
+unicode_mapping.csv`, or `python3 mapping/reassemble.py`, verified by
+SHA-256 and line count.
 
 ## Install / run
 
@@ -280,6 +291,28 @@ documentation, in these concrete ways:
 Surrogates (U+D800–U+DFFF) are not characters. The input
 contains a lone surrogate — usually from decoding invalid
 UTF-8. Fix the input; do not try to encode a surrogate.
+
+Exception, code v1.1.0: the opt-in abstract surrogate mode,
+`--abstract-surrogates`, represents a lone surrogate only as the
+abstract reference `[SURROGATE U+D800]` (plain ASCII, same in
+both forms). Encoding a lone surrogate emits that token;
+decoding a surrogate form or the token yields that same token,
+never a lone surrogate character. Example:
+`printf '\uD800' | python3 ascii_unicode_code.py --mode both decode --form visible --abstract-surrogates`
+gives `[SURROGATE U+D800]`. Without the flag, surrogates are
+still rejected exactly as above.
+
+**Surrogate pairs are different from lone surrogates, and pair
+handling is available.**
+A high surrogate followed at once by a low surrogate is how
+UTF-16 writes one astral character — the pair is one character
+in another spelling, not two characters. For example, the pair
+U+D83D U+DE00 is 😀 (U+1F600), and the encoder encodes it as
+`\U0001F600`, in both modes, with or without the flag. A lone
+surrogate, a low surrogate on its own, or a high surrogate
+followed by anything that is not a low surrogate is not a pair:
+it is rejected by default, and becomes an abstract token only
+with `--abstract-surrogates`.
 
 **"malformed ESC sequence at offset …"**
 The ESC-form input has an ESC byte that is not followed by
