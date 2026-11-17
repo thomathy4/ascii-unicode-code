@@ -1,6 +1,6 @@
 # Hardware extension sketch — ASCII/Unicode escape code
 
-**Status: draft sketch only, 2026-11-17.** Not part of code v1.1.0, not implemented, not pushed to GitHub. The current code encodes characters; it does not touch hardware. This sketch asks: what would it take for the same ESC mechanism to reach machine fundamentals?
+**Status: draft sketch only, 2026-11-17 — pushed to thomathy4/ascii-unicode-code as HARDWARE-EXTENSION-SKETCH.md.** Not part of code v1.1.0, not implemented. The current code encodes characters; it does not touch hardware. This sketch asks: what would it take for the same ESC mechanism to reach machine fundamentals?
 
 ## The one principle
 
