@@ -1,7 +1,8 @@
 # Test report — ASCII/ANSI Code for Unicode and Sentential Logic
 
 Test run: 2026-11-17
-Code version: 1.0.0
+Code version: 1.1.0 (1.0.0 as first built; 1.1.0 adds the opt-in
+abstract surrogate mode, `--abstract-surrogates`, only)
 Unicode version used: **18.0.0** (UnicodeData.txt, downloaded 2026-11-17)
 Python version: **3.12.3**
 System `unicodedata` version: 15.0.0 — note: the mapping and the
@@ -24,6 +25,7 @@ Overall result: **PASS** (last line of the run: `OVERALL: PASS`)
 | Space / LF / CR / CRLF | both forms + named forms + aliases | 5 | 0 |
 | ESC ↔ visible conversion | both ways, sample + all assigned | 310,342 | 0 |
 | Negative tests | — | 12 | 0 |
+| Abstract surrogates (opt-in) | all 2,048 + mixed + default-rejects | 2,049 | 0 |
 | Variant ESC-only | spot check + logic inventory | 19 | 0 |
 | Variant visible-only | spot check + logic inventory | 19 | 0 |
 
@@ -133,6 +135,38 @@ Pass: 12. Fail: 0.
 10. Non-ASCII byte in ESC-form input — rejected.
 11. ESC-only mode rejects `--form visible` — rejected.
 12. Visible-only mode rejects `--form esc` — rejected.
+
+### (g) Abstract surrogates (opt-in, code v1.1.0)
+
+All 2,048 surrogate code points, U+D800–U+DFFF: with
+`abstract_surrogates=True`, `encode_char` returns the abstract
+token `[SURROGATE U+XXXX]` in both forms, `encode_text` emits
+that token in both ESC and visible form, and `decode_visible`,
+`decode_esc`, `convert_esc_to_visible`, and
+`convert_visible_to_esc` all return that same token for a
+canonical surrogate form or for the token itself — never a lone
+surrogate character. Pass: 2,048. One further check: mixed text
+`a\ud800b\udfff` encodes to `a[SURROGATE U+D800]b[SURROGATE U+DFFF]`,
+stays ASCII-only, and decodes back to that same token string;
+and the default mode still rejects surrogates in encode, both
+decode forms, and both convert directions. Pass: 1.
+Total for this test: **pass 2,049, fail 0**.
+
+The default behaviour is unchanged: without the flag, surrogates
+are still rejected exactly as in test (f) above.
+
+### (g2) Surrogate pairs (code v1.1.0)
+
+A valid pair — a high surrogate followed at once by a low
+surrogate — is one astral character in UTF-16 spelling, not
+two characters. The pair U+D83D U+DE00 encodes as `\U0001F600`
+in both forms, with or without `--abstract-surrogates`, and
+decodes back to 😀. A lone surrogate, a low surrogate on its
+own, or a high surrogate followed by anything that is not a
+low surrogate is not a pair: it is rejected by default and
+becomes an abstract token only with the flag. Pass: 1 (that
+one check covers both forms, both flag settings, the pair
+plus a lone surrogate, and four non-pair cases).
 
 ## Variant tests
 

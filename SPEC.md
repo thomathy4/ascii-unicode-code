@@ -1,6 +1,8 @@
 # ASCII/ANSI Code for Unicode and Sentential Logic — Specification
 
-Version: 1.0.0 of the code
+Version: 1.1.0 of the code (1.0.0 as built 2026-11-17; 1.1.0 adds the
+opt-in abstract surrogate mode, `--abstract-surrogates`, only —
+no canonical form changed)
 Unicode version used: **18.0.0** (UnicodeData.txt downloaded 2026-11-17 from
 https://www.unicode.org/Public/UCD/latest/ucd/UnicodeData.txt)
 Python used for testing: 3.12.3 (system `unicodedata` is 15.0.0; the mapping
@@ -226,9 +228,35 @@ Long forms are visible-form only and are decoded only with
 ## 7. Surrogates, noncharacters, private use, unassigned
 
 - **Surrogates** U+D800–U+DFFF: not valid scalar values, not
-  characters. Encoding or decoding them is rejected with a clear
-  error. They appear in `unicode_mapping.csv` with status
+  characters. A surrogate on its own is rejected with a clear
+  error — unless the opt-in abstract surrogate mode is used
+  (code v1.1.0, `--abstract-surrogates`). In that mode a lone
+  surrogate is represented only as the abstract reference
+  `[SURROGATE U+D800]` (plain ASCII, same token in both forms);
+  encoding a lone surrogate emits that token, and decoding a
+  canonical surrogate form (`ESC[UD800m` / `\uD800`) or the token
+  itself yields that same token — never a lone surrogate
+  character — so every output stays valid ASCII/UTF-8. The mode
+  is off by default. They appear in `unicode_mapping.csv` with status
   `surrogate` and no name, so they are listed, not hidden.
+- **Surrogate pairs — the plain difference, and it is available:**
+  a pair is not two
+  lone surrogates. A high surrogate (U+D800–U+DBFF) followed at
+  once by a low surrogate (U+DC00–U+DFFF) is how UTF-16 writes
+  one astral character: the pair is one character in another
+  spelling, not two characters. Example: the pair U+D83D U+DE00
+  is the character 😀 (U+1F600). So the encoder combines a valid
+  pair into that astral character and encodes it in the ordinary
+  way (`\U0001F600` / `ESC[U01F600m`), and this pair handling is
+  available in both modes, with or
+  without `--abstract-surrogates`. A lone surrogate, a low
+  surrogate on its own, or a high surrogate followed by anything
+  that is not a low surrogate is not a pair: it is rejected by
+  default, and becomes an abstract token only with
+  `--abstract-surrogates`. Decoding does not make pairs:
+  decoding `\U0001F600` gives 😀, and decoding two abstract
+  tokens gives those two tokens back, because a token is a
+  reference to a code point, not a character.
 - **Noncharacters** (U+FDD0–U+FDEF and every code point ending
   in FFFE or FFFF, 66 in total): valid scalar values, so they
   round-trip like any other character, but they are permanently
@@ -299,7 +327,8 @@ the glyph.
 
 ## 9. Versioning
 
-- Code version: 1.0.0.
+- Code version: 1.1.0 (1.0.0 as built 2026-11-17; 1.1.0, same day,
+  adds only the opt-in abstract surrogate mode).
 - Unicode version: 18.0.0, recorded here, in the mapping
   generator, in the encoder (`UNICODE_VERSION = "18.0.0"`), and
   in `TEST_REPORT.md`.

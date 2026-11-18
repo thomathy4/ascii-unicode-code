@@ -178,6 +178,84 @@ def main():
             failed += 1
     ok &= check("negative_tests", passed, failed)
 
+    # (g) abstract surrogate mode, opt-in only
+    passed = failed = 0
+    try:
+        # all 2,048 surrogates: encode -> token, decode token/forms -> token
+        for cp in range(0xD800, 0xE000):
+            ch = chr(cp)
+            token = "[SURROGATE U+%04X]" % cp
+            e, v = encode_char(ch, abstract_surrogates=True)
+            assert e == v == token, (cp, e, v)
+            assert encode_text(ch, form="visible",
+                               abstract_surrogates=True) == token
+            assert encode_text(ch, form="esc",
+                               abstract_surrogates=True) == token
+            assert decode_visible(v, abstract_surrogates=True) == token
+            assert decode_visible(token, abstract_surrogates=True) == token
+            assert decode_esc(e.encode("ascii"),
+                              abstract_surrogates=True) == token
+            assert convert_esc_to_visible(e.encode("ascii"),
+                                          abstract_surrogates=True) == token
+            assert convert_visible_to_esc(v,
+                                          abstract_surrogates=True) == token.encode("ascii")
+            passed += 1
+        # mixed text, both forms, token stays valid ASCII
+        mixed = "a\ud800b\udfff"
+        enc = encode_text(mixed, form="visible", abstract_surrogates=True)
+        assert enc == "a[SURROGATE U+D800]b[SURROGATE U+DFFF]", enc
+        assert max(enc.encode("ascii")) <= 0x7F
+        dec = decode_text(enc.encode("ascii"), form="visible",
+                          abstract_surrogates=True)
+        assert dec == enc, (dec, enc)
+        # default mode still rejects (also covered by negative tests)
+        for fn in (lambda: encode_text("\ud800", form="visible"),
+                   lambda: decode_visible("\\uD800"),
+                   lambda: decode_esc(b"\x1b[UD800m"),
+                   lambda: convert_esc_to_visible(b"\x1b[UD800m"),
+                   lambda: convert_visible_to_esc("\\uD800")):
+            try:
+                fn()
+                raise AssertionError("default mode accepted a surrogate")
+            except ValueError:
+                pass
+        passed += 1
+    except Exception as e:
+        print("abstract surrogates error: %s" % e)
+        failed += 1
+    ok &= check("abstract_surrogates", passed, failed)
+
+    # (g2) surrogate pairs are one astral character, in both modes
+    passed = failed = 0
+    try:
+        pair = "\ud83d\ude00"  # UTF-16 pair for U+1F600
+        for form in ("esc", "visible"):
+            for flag in (False, True):
+                enc = encode_text(pair, form=form,
+                                  abstract_surrogates=flag)
+                dec = decode_text(enc.encode("ascii"), form=form,
+                                  abstract_surrogates=flag)
+                assert dec == "\U0001F600", (form, flag, enc, dec)
+        assert encode_text(pair, form="visible") == "\\U0001F600"
+        assert encode_text(pair + "\ud800", form="visible",
+                           abstract_surrogates=True) == \
+            "\\U0001F600[SURROGATE U+D800]"
+        # lone / mismatched surrogates are not pairs
+        for bad in ("\ud800", "\udc00", "\ud800\ud800", "\udc00\ud800"):
+            try:
+                encode_text(bad, form="visible")
+                raise AssertionError("default mode accepted %r" % bad)
+            except ValueError:
+                pass
+            assert encode_text(bad, form="visible",
+                               abstract_surrogates=True) == "".join(
+                "[SURROGATE U+%04X]" % ord(c) for c in bad)
+        passed += 1
+    except Exception as e:
+        print("surrogate pairs error: %s" % e)
+        failed += 1
+    ok &= check("surrogate_pairs", passed, failed)
+
     # variant spot checks: esc-only and visible-only round-trips
     for mode, form in (("esc-only", "esc"), ("visible-only", "visible")):
         passed = failed = 0
